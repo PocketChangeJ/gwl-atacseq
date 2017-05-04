@@ -23,7 +23,8 @@
   #:use-module (guix gexp)
   #:use-module (gnu packages bioinformatics)
   #:use-module (gnu packages statistics)
-  #:use-module (umcu packages python))
+  #:use-module (umcu packages python)
+  #:use-module (umcu packages fastqc))
 
 ;; Merge all the coverage files to a count table.
 
@@ -41,6 +42,26 @@
 ;; ----------------------------------------------------------------------------
 ;; PROCESS DEFINITIONS
 ;; ----------------------------------------------------------------------------
+
+(define-public iap-prestats
+  (process
+   (name "iap-prestats")
+   (version "1.0")
+   (package-inputs
+    `(("fastqc" ,fastqc-bin-0.11.4)))
+   (data-inputs '(""))
+   (run-time (complexity
+              (space (* 500 1024 1024)) ; 500 megabytes
+              (time (* 10 60))
+              (threads 4))) ; 5 minutes
+   (procedure
+    #~(let ((fastqc (string-append
+                     #$@(assoc-ref package-inputs "fastqc") "/bin/fastqc")))
+        (for-each (lambda (file)
+                    (system* fastqc "-o" "QCStats" "--noextract" "-t" file))
+                  '#$data-inputs)))
+   (synopsis "Run FastQC on each fastq file.")
+   (description "Run FastQC on each fastq file.")))
 
 ;; Quality control of ATAC-seq data (# mapped reads / sample, # reads /
 ;; chromosome / sample, # Y/X-chromosomal reads (gender check)
@@ -152,12 +173,14 @@ for each sample using Bedtools's 'coverage' subcommand.")))
    (name "gwl-atacseq")
    (version "1.0")
    (processes
-    `(,quality-control
+    `(,iap-prestats
+      ,quality-control
       ,call-peaks
       ,merge-peaks
       ,peaks-coverage))
    (restrictions
-    `((,merge-peaks ,call-peaks)
+    `((,quality-control ,iap-prestats)
+      (,merge-peaks ,call-peaks)
       (,peaks-coverage ,merge-peaks)))
    (synopsis "")
    (description "")))
