@@ -22,7 +22,8 @@
   #:use-module (guix workflows)
   #:use-module (guix gexp)
   #:use-module (gnu packages bioinformatics)
-  #:use-module (gnu packages statistics))
+  #:use-module (gnu packages statistics)
+  #:use-module (umcu packages python))
 
 ;; Merge all the coverage files to a count table.
 
