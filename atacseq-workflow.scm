@@ -155,8 +155,7 @@ for each sample using Bedtools's 'coverage' subcommand.")))
     `(,quality-control
       ,call-peaks
       ,merge-peaks
-      ,peaks-coverage
-      ,))
+      ,peaks-coverage))
    (restrictions
     `((,merge-peaks ,call-peaks)
       (,peaks-coverage ,merge-peaks)))
