@@ -46,6 +46,8 @@
     (native-inputs
      `(("gzip" ,gzip)
        ("tar" ,tar)))
+    (propagated-inputs
+     `(("r-genomicranges" ,r-genomicranges)))
     (home-page #f)
     (synopsis "Additional scripts for the ATACseq pipeline.")
     (description "Additional scripts for the ATACseq pipeline.")
@@ -67,46 +69,46 @@
     #~(let ((files '#$data-inputs)
             (macs2 (string-append #$@(assoc-ref package-inputs "python-macs2")
                                   "/bin/macs2")))
-        (if (zero?
-             (apply +
-              (map
-               (lambda (file-pair)
-                 (let ((sample-name (car file-pair))
-                       (file-name (cdr file-pair))
-                       (output-path (string-append (getcwd) "/peaks")))
+        (zero?
+          (apply +
+            (map
+             (lambda (file-pair)
+               (let ((sample-name (car file-pair))
+                     (file-name (cdr file-pair))
+                     (output-path (string-append (getcwd) "/peaks")))
 
-                   (unless (access? output-path F_OK)
-                     (mkdir output-path))
+                 (unless (access? output-path F_OK)
+                   (mkdir output-path))
 
-                   (system*
-                    macs2 "callpeak"
-                    ;; ChIP-seq treatment file.
-                    "-t" file-name
+                 (system*
+                  macs2 "callpeak"
+                  ;; ChIP-seq treatment file.
+                  "-t" file-name
 
-                    ;; File format.  We could use 'AUTO' here instead for
-                    ;; automatic detection of the input file type.
-                    "-f" "BAM"
+                  ;; File format.  We could use 'AUTO' here instead for
+                  ;; automatic detection of the input file type.
+                  "-f" "BAM"
 
-                    ;; Effective genome size; 'hs' is a shortcut for
-                    ;; human (2.7e9)
-                    "-g" "hs"
+                  ;; Effective genome size; 'hs' is a shortcut for
+                  ;; human (2.7e9)
+                  "-g" "hs"
 
-                    ;; Whether or not to build the shifting model.  If
-                    ;; True, MACS will not build model. by default it means
-                    ;; shifting size = 100, try to set extsize to change it.
-                    ;; DEFAULT: False.
-                    "--nomodel"
+                  ;; Whether or not to build the shifting model.  If
+                  ;; True, MACS will not build model. by default it means
+                  ;; shifting size = 100, try to set extsize to change it.
+                  ;; DEFAULT: False.
+                  "--nomodel"
 
-                    ;; If True, MACS will use fixed background lambda as
-                    ;; local lambda for every peak region.  Normally, MACS
-                    ;; calculates a dynamic local lambda to reflect the
-                    ;; local bias due to potential chromatin structure.
-                    "--nolambda"
+                  ;; If True, MACS will use fixed background lambda as
+                  ;; local lambda for every peak region.  Normally, MACS
+                  ;; calculates a dynamic local lambda to reflect the
+                  ;; local bias due to potential chromatin structure.
+                  "--nolambda"
 
-                    ;; Experiment name.
-                    "--name" sample-name
-                    "--outdir" output-path)))
-               files))))))
+                  ;; Experiment name.
+                  "--name" sample-name
+                  "--outdir" output-path)))
+               files)))))
    (synopsis "Call peaks using MACS2")
    (description "This process calls peaks for every sample in 'data-inputs'
 using MACS2.")))
@@ -117,7 +119,7 @@ using MACS2.")))
    (version "1.0")
    (package-inputs
     `(("grep" ,grep)
-      ("r" ,r)
+      ("r" ,r-minimal)
       ("bedtools" ,bedtools)
       ("coreutils" ,coreutils)
       ("atacseq-scripts" ,r-atacseq-scripts)))
@@ -137,6 +139,10 @@ using MACS2.")))
             (annotate-script (string-append
                               #$@(assoc-ref package-inputs "atacseq-scripts")
                               "/share/atacseq/scripts/annotate.R"))
+            ;; TODO: This doesn't take the propagated-inputs into account.
+            (r-libs-site (string-append
+                          #$@(assoc-ref package-inputs "atacseq-scripts")
+                          "/site-library"))
             (bedtools (string-append
                        #$@(assoc-ref package-inputs "bedtools") "/bin/bedtools"))
             (cat (string-append
@@ -145,6 +151,11 @@ using MACS2.")))
                   #$@(assoc-ref package-inputs "coreutils") "/bin/cut"))
             (sort (string-append #$@(assoc-ref package-inputs "coreutils")
                                  "/bin/sort")))
+
+        ;; Remove files that will be overwritten.
+        (when (access? "narrowPeak_sort.bed" F_OK)
+          (delete-file "narrowPeak_sort.bed"))
+
         ;; Combine the samples
         (if (and (zero?
                   (apply +
@@ -180,12 +191,22 @@ using MACS2.")))
                    (string-append
                     bedtools " merge -i narrowPeak_sort.bed -c 4 -o count,mean "
                     "> narrowPeak_merge.bed")))
+                 ;; Set the R environment so that GenomicRanges can be found.
+                 ;; TODO: We need to fix the propagation of inputs here.
+                 ;; FIXME: Yes, this is definitely cheating!
+                 ;;(setenv "R_LIBS_SITE" r-libs-site)
+                 (setenv "R_LIBS_SITE" "/gnu/profiles/per-language/r/site-library")
                  ;; Annotate peaks using R
                  (zero? (system* rscript annotate-script
                                  #$(assoc-ref data-inputs "tss-refseq")
                                  "narrowPeak_merge.bed"
                                  "narrowPeak_annot.bed")))
-            #t    ; When everything executed just fine.
+            (begin ; When everything executed just fine.
+              (for-each delete-file '("narrowPeak.bed"
+                                      "narrowPeak_cat.txt"
+                                      "narrowPeak_sort.bed"
+                                      "narrowPeak_merge.bed"))
+              #t)
             #f))) ; When something went wrong.
    (synopsis "Merge peaks obtained from 'call-peaks'")
    (description "This process merges the peaks obtained using 'call-peaks'.")))
@@ -194,7 +215,7 @@ using MACS2.")))
 ;; XXX: The following processes are untested/WIP.
 ;;
 
-(define (peak-coverage-for-samples samples run-path)
+(define-public (peak-coverage-for-samples samples run-path)
   (process
    (name "atacseq-peak-coverage")
    (version "1.0")
@@ -208,25 +229,23 @@ using MACS2.")))
    (procedure
     #~(let ((bedtools (string-append #$@(assoc-ref package-inputs "bedtools")
                                      "/bin/bedtools")))
-        (if (zero?
-             (apply + (map (lambda (sample)
-                             (system
-                              (string-append
-                               ;; Run 'bedtools coverage'
-                               bedtools " coverage "
-                               ;; With the peak annotation information.
-                               "-a narrowPeak_annot.bed "
-                               ;; On the sample's BAM file.
-                               "-b " run-path "/" sample "/mapping/" sample "_dedup.bam "
-                               ;; And save the output to a file.
-                               "-sorted > " sample "-merge_peak_cov.bed")))
-                           '#$@(assoc-ref data-inputs "samples"))))
-            #t
-            #f)))
+        (zero?
+          (apply + (map (lambda (sample)
+                          (system
+                           (string-append
+                            ;; Run 'bedtools coverage'
+                            bedtools " coverage "
+                            ;; With the peak annotation information.
+                            "-a narrowPeak_annot.bed "
+                            ;; On the sample's BAM file.
+                            "-b " run-path "/" sample "/mapping/" sample "_dedup.bam "
+                            ;; And save the output to a file.
+                            "-sorted > " sample "-merge_peak_cov.bed")))
+                        '#$@(assoc-ref data-inputs "samples"))))))
    (synopsis "")
    (description "")))
 
-(define (samtools-idxstats-for-samples samples)
+(define-public (samtools-idxstats-for-samples samples)
   (process
    (name "samtools-idxstats")
    (version "1.0")
@@ -240,23 +259,20 @@ using MACS2.")))
    (procedure
     #~(let ((samtools (string-append #$@(assoc-ref package-inputs "samtools")
                                      "/bin/samtools")))
-        (if (zero?
-             (apply + (map (lambda (sample)
-                             (system (string-append samtools " idxstats "
-                                                    sample
-                                                    "> " sample ".idxstats.txt")))
-                           '#$@(assoc-ref data-inputs "samples"))))
-            #t
-            #f)))
+        (zero?
+          (apply + (map (lambda (sample)
+                          (system (string-append samtools " idxstats " sample
+                                                 "> " sample ".idxstats.txt")))
+                        '#$@(assoc-ref data-inputs "samples"))))))
    (synopsis "Retrieve statistics from a BAM index file")
    (description "This process retrieves statistics from a BAM index file.")))
 
-(define (calculate-rpkm-for-samples samples)
+(define-public (calculate-rpkm-for-samples samples)
   (process
    (name "calculate-rpkms")
    (version "1.0")
    (package-inputs
-    `(("r" ,r)
+    `(("r" ,r-minimal)
       ("atacseq-scripts" ,r-atacseq-scripts)))
    (data-inputs `(("samples" . ,samples)))
    (run-time (complexity
@@ -284,12 +300,12 @@ using MACS2.")))
    (description "This process merges the raw coverage files of each sample to
 one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
 
-(define (differential-expression controls-file)
+(define-public (differential-expression controls-file)
   (process
    (name "differential-expression")
    (version "1.0")
    (package-inputs
-    `(("r" ,r)
+    `(("r" ,r-minimal)
       ("atacseq-scripts" ,r-atacseq-scripts)))
    (data-inputs controls-file)
    (run-time (complexity
