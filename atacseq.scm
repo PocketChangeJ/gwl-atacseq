@@ -55,7 +55,7 @@
 
 (define-public (call-peaks-for-sample sample run-path)
   (process
-    (name (string-append "atacseq-" sample "-call-peaks"))
+    (name (string-append sample "-call-peaks"))
     (version "1.0")
     (package-inputs `(("python-macs2" ,python-macs2)))
     (data-inputs
@@ -115,7 +115,7 @@ using MACS2.")))
 
 (define-public (merge-peaks-for-samples samples)
   (process
-   (name (string-append "atacseq-merge-peaks"))
+   (name (string-append "merge-peaks"))
    (version "1.0")
    (package-inputs
     `(("grep" ,grep)
@@ -211,20 +211,16 @@ using MACS2.")))
    (synopsis "Merge peaks obtained from 'call-peaks'")
    (description "This process merges the peaks obtained using 'call-peaks'.")))
 
-;;
-;; XXX: The following processes are untested/WIP.
-;;
-
 (define-public (peak-coverage-for-samples samples run-path)
   (process
-   (name "atacseq-peak-coverage")
+   (name "peak-coverage")
    (version "1.0")
    (package-inputs
     `(("bedtools" ,bedtools)))
    (data-inputs
     `(("samples" . ,samples)))
    (run-time (complexity
-              (space (gigabytes 24))
+              (space (gigabytes 48))
               (time (hours 1))))
    (procedure
     #~(let ((bedtools (string-append #$@(assoc-ref package-inputs "bedtools")
@@ -238,14 +234,45 @@ using MACS2.")))
                             ;; With the peak annotation information.
                             "-a narrowPeak_annot.bed "
                             ;; On the sample's BAM file.
-                            "-b " run-path "/" sample "/mapping/" sample "_dedup.bam "
+                            "-b " #$run-path "/" sample "/mapping/" sample "_dedup.bam "
                             ;; And save the output to a file.
                             "-sorted > " sample "-merge_peak_cov.bed")))
-                        '#$@(assoc-ref data-inputs "samples"))))))
-   (synopsis "")
-   (description "")))
+                        '#$(assoc-ref data-inputs "samples"))))))
+   (synopsis "Compute the coverage for each sample")
+   (description "This process uses 'bedtools' to  compute both the depth and
+breadth of coverage of features in each sample on the features in the union
+of all provided samples. ")))
 
-(define-public (samtools-idxstats-for-samples samples)
+(define-public (peak-coverage-for-sample sample run-path)
+  (process
+   (name (string-append sample "-peak-coverage"))
+   (version "1.0")
+   (package-inputs
+    `(("bedtools" ,bedtools)))
+   (data-inputs sample)
+   (run-time (complexity
+              (space (gigabytes 70)) ; Peak usage was 58G
+              (time (hours 1))))
+   (procedure
+    #~(let ((bedtools (string-append #$@(assoc-ref package-inputs "bedtools")
+                                     "/bin/bedtools")))
+        (zero? (system
+                (string-append
+                 ;; Run 'bedtools coverage'
+                 bedtools " coverage "
+                 ;; With the peak annotation information.
+                 "-a narrowPeak_annot.bed "
+                 ;; On the sample's BAM file.
+                 "-b " #$run-path "/" #$data-inputs "/mapping/" #$data-inputs "_dedup.bam "
+                 ;; And save the output to a file.
+                 "-sorted > " #$data-inputs "-merge_peak_cov.bed")))))
+   (synopsis (string-append "Compute the coverage for " sample))
+   (description (string-append
+                 "This process uses 'bedtools' to  compute both the depth and
+breadth of coverage of features in " sample " on the features in the union
+of the total set of provided samples."))))
+
+(define-public (samtools-idxstats-for-samples samples run-path)
   (process
    (name "samtools-idxstats")
    (version "1.0")
@@ -260,10 +287,14 @@ using MACS2.")))
     #~(let ((samtools (string-append #$@(assoc-ref package-inputs "samtools")
                                      "/bin/samtools")))
         (zero?
-          (apply + (map (lambda (sample)
-                          (system (string-append samtools " idxstats " sample
-                                                 "> " sample ".idxstats.txt")))
-                        '#$@(assoc-ref data-inputs "samples"))))))
+         (apply +
+          (map (lambda (sample)
+                 (system
+                  (string-append
+                   samtools " idxstats "
+                   #$run-path "/" sample "/mapping/" sample "_dedup.bam "
+                   "> " sample ".idxstats.txt")))
+               '#$(assoc-ref data-inputs "samples"))))))
    (synopsis "Retrieve statistics from a BAM index file")
    (description "This process retrieves statistics from a BAM index file.")))
 
@@ -276,10 +307,12 @@ using MACS2.")))
       ("atacseq-scripts" ,r-atacseq-scripts)))
    (data-inputs `(("samples" . ,samples)))
    (run-time (complexity
-              (space (gigabytes 8))
+              (space (megabytes 500))
               (time (hours 1))))
    (procedure
-    #~(let ((rscript (string-append
+    #~(begin
+        (use-modules (ice-9 format))
+        (let ((rscript (string-append
                       #$@(assoc-ref package-inputs "r") "/bin/Rscript"))
             (rpkm-script (string-append
                           #$@(assoc-ref package-inputs "atacseq-scripts")
@@ -288,14 +321,13 @@ using MACS2.")))
         (with-output-to-file "samplelist.txt"
           (lambda _
             (for-each (lambda (sample)
-                        (format #t "~a-merge_peak_cov.bed~t~a.idxstats.txt~%"
-                                sample sample))
-                      #$(assoc-ref data-inputs "samples"))))
-
+                        (format #t "~a~/~a-merge_peak_cov.bed~/~a.idxstats.txt~%"
+                                sample sample sample))
+                      '#$(assoc-ref data-inputs "samples"))))
         ;; Run the rpkm.R script for the sample list.
         (zero? (system* rscript rpkm-script
                         "narrowPeak_annot.bed" "samplelist.txt"
-                        (getcwd)))))
+                        (string-append (getcwd) "/RPKM"))))))
    (synopsis "Calculate RPKMs for samples")
    (description "This process merges the raw coverage files of each sample to
 one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
@@ -317,10 +349,13 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
             (deseq2-script (string-append
                           #$@(assoc-ref package-inputs "atacseq-scripts")
                           "/share/atacseq/scripts/deseq2.R")))
+        ;; FIXME: This is cheating.
+        (setenv "R_LIBS_SITE" "/gnu/profiles/per-language/r/site-library")
         (zero? (system* rscript deseq2-script
-                        "narrowPeak_annot_comb.bed"
+                        "RPKM.narrowPeak_annot_comb.bed"
                         #$data-inputs
-                        (getcwd)))))
+                        ;; FIXME: Adjust deseq2.R for proper output paths.
+                        (string-append (getcwd) "/DE")))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
