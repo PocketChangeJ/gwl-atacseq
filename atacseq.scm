@@ -320,7 +320,7 @@ of the total set of provided samples."))))
       ("atacseq-scripts" ,r-atacseq-scripts)))
    (data-inputs `(("samples" . ,samples)))
    (run-time (complexity
-              (space (megabytes 500))
+              (space (gigabytes 2))
               (time (hours 1))))
    (procedure
     #~(begin
