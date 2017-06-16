@@ -53,6 +53,19 @@
     (description "Additional scripts for the ATACseq pipeline.")
     (license #f)))
 
+(define-public atacseq-initialize
+  (process
+   (name "initialize")
+   (version "1.0")
+   (run-time (complexity
+              (space (megabytes 200))
+              (time 10)))
+   (procedure
+    #~(begin (unless (access? #$(string-append (getcwd) "/peaks") F_OK)
+               (mkdir #$(string-append (getcwd) "/peaks")))))
+   (synopsis "Create the directory structure for the ATACseq workflow")
+   (description "Create the directory structure for the ATACseq workflow")))
+
 (define-public (call-peaks-for-sample sample run-path)
   (process
     (name (string-append sample "-call-peaks"))
