@@ -13,45 +13,46 @@
   #:use-module (umcu packages fastqc))
 
 (define-public r-atacseq-scripts
-  (package
-    (name "r-atacseq-scripts")
-    (version "1.0")
-    (source (origin
+  (let ((commit "56111981292d9f8eb66ba68bdaefd9d39b0f7f1e"))
+    (package
+     (name "r-atacseq-scripts")
+     (version "1.0")
+     (source (origin
               (method url-fetch)
               ;; TODO:  The repository is still private, so we cannot download
               ;; the source code from a public location.
               (uri (string-append
-                    "file:///hpc/cog_bioinf/cuppen/personal_data/"
-                    "rjanssen2/sources/gwl-atacseq-master.tar.gz"))
+                    "https://github.com/UMCUGenetics/gwl-atacseq/archive/"
+                    commit ".tar.gz"))
               (sha256
                (base32
-                "0m3gilwz37d929cdi6a2li696za50wqb94lnnvr3sj8cy99awi74"))))
-    (build-system trivial-build-system)
-    (arguments
-     `(#:modules ((guix build utils))
-       #:builder
-       (begin
-         (use-modules (guix build utils))
-         (let* ((out (assoc-ref %outputs "out"))
-                (script-dir (string-append out "/share/atacseq/scripts/"))
-                (tar  (string-append (assoc-ref %build-inputs "tar") "/bin/tar"))
-                (PATH (string-append (assoc-ref %build-inputs "gzip") "/bin")))
-           (mkdir-p script-dir)
-           (setenv "PATH" PATH)
-           (system* tar "xvf" (assoc-ref %build-inputs "source"))
-           (chdir "gwl-atacseq-master/rostr/scripts")
-           (install-file "annotate.R" script-dir)
-           (install-file "deseq2.R" script-dir)
-           (install-file "rpkm.R" script-dir)))))
-    (native-inputs
-     `(("gzip" ,gzip)
-       ("tar" ,tar)))
-    (propagated-inputs
-     `(("r-genomicranges" ,r-genomicranges)))
-    (home-page #f)
-    (synopsis "Additional scripts for the ATACseq pipeline.")
-    (description "Additional scripts for the ATACseq pipeline.")
-    (license #f)))
+                "0dpp4b5p03dmk0yp2710d1mpmiflfgl0s62gzyfhsfn2g64n5bzr"))))
+     (build-system trivial-build-system)
+     (arguments
+      `(#:modules ((guix build utils))
+        #:builder
+        (begin
+          (use-modules (guix build utils))
+          (let* ((out (assoc-ref %outputs "out"))
+                 (script-dir (string-append out "/share/atacseq/scripts/"))
+                 (tar  (string-append (assoc-ref %build-inputs "tar") "/bin/tar"))
+                 (PATH (string-append (assoc-ref %build-inputs "gzip") "/bin")))
+            (mkdir-p script-dir)
+            (setenv "PATH" PATH)
+            (system* tar "xvf" (assoc-ref %build-inputs "source"))
+            (chdir (string-append "gwl-atacseq-" ,commit "/rostr/scripts"))
+            (install-file "annotate.R" script-dir)
+            (install-file "deseq2.R" script-dir)
+            (install-file "rpkm.R" script-dir)))))
+     (native-inputs
+      `(("gzip" ,gzip)
+        ("tar" ,tar)))
+     (propagated-inputs
+      `(("r-genomicranges" ,r-genomicranges)))
+     (home-page #f)
+     (synopsis "Additional scripts for the ATACseq pipeline.")
+     (description "Additional scripts for the ATACseq pipeline.")
+     (license #f))))
 
 (define-public atacseq-initialize
   (process
@@ -372,4 +373,3 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
-
