@@ -19,8 +19,6 @@
      (version "1.0")
      (source (origin
               (method url-fetch)
-              ;; TODO:  The repository is still private, so we cannot download
-              ;; the source code from a public location.
               (uri (string-append
                     "https://github.com/UMCUGenetics/gwl-atacseq/archive/"
                     commit ".tar.gz"))
