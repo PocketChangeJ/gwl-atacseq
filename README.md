@@ -90,7 +90,8 @@ This looks like the following:
    (name "atacseq")
    (version "1.0")
    (processes
-    (append `(,merge-peaks
+    (append `(,atacseq-initialize
+              ,merge-peaks
               ,calculate-rpkms
               ,idxstats
               ,diff-exp)
@@ -98,6 +99,7 @@ This looks like the following:
             peak-coverage-processes))
    (restrictions
     (append
+     (map (lambda (p) `(,p ,atacseq-initialize)) call-peaks-processes)
      ;; Before we can run 'merge-peaks', we need to 'call-peaks' on each sample.
      `((,merge-peaks . ,call-peaks-processes))
      ;; Each 'peak-coverage' process depends on the 'merge-peaks' process.
