@@ -1,4 +1,5 @@
 (define-module (atacseq)
+  #:use-module (ice-9 rdelim)
   #:use-module (guix processes)
   #:use-module (guix workflows)
   #:use-module (guix gexp)
@@ -11,6 +12,10 @@
   #:use-module (gnu packages statistics)
   #:use-module (umcu packages python)
   #:use-module (umcu packages fastqc))
+
+;; ----------------------------------------------------------------------------
+;; PACKAGES
+;; ----------------------------------------------------------------------------
 
 (define-public r-atacseq-scripts
   (let ((commit "56111981292d9f8eb66ba68bdaefd9d39b0f7f1e"))
@@ -52,18 +57,10 @@
      (description "Additional scripts for the ATACseq pipeline.")
      (license #f))))
 
-(define-public atacseq-initialize
-  (process
-   (name "initialize")
-   (version "1.0")
-   (run-time (complexity
-              (space (megabytes 200))
-              (time 10)))
-   (procedure
-    #~(begin (unless (access? #$(string-append (getcwd) "/peaks") F_OK)
-               (mkdir #$(string-append (getcwd) "/peaks")))))
-   (synopsis "Create the directory structure for the ATACseq workflow")
-   (description "Create the directory structure for the ATACseq workflow")))
+
+;; ----------------------------------------------------------------------------
+;; PROCESSES AND PROCESS TEMPLATE FUNCTIONS
+;; ----------------------------------------------------------------------------
 
 (define-public (call-peaks-for-sample sample run-path)
   (process
@@ -90,7 +87,9 @@
                      (output-path (string-append (getcwd) "/peaks")))
 
                  (unless (access? output-path F_OK)
-                   (mkdir output-path))
+                   (catch #t
+                     (lambda _ (mkdir output-path))
+                     (lambda (key . arguments) #t)))
 
                  (system*
                   macs2 "callpeak"
@@ -371,3 +370,105 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
+
+
+;; ----------------------------------------------------------------------------
+;; WORKFLOW
+;; ----------------------------------------------------------------------------
+;;
+;; The following construct enables us to hide all Scheme code from the end-user
+;; by conditionally exposing symbols to the outside world.
+;;
+;; The condition we use here, is the availability of "samples.txt" in the
+;; user's current working directory.
+
+(define (samples-reader filename)
+  "Returns a list of sample names read from FILENAME."
+
+  (define (line-reader port items)
+    (let ((line (read-line port)))
+      (if (or (eof-object? line)
+              (string= "" line))
+          items
+          (let ((sample (string-take line (string-index line #\tab))))
+            (line-reader port (cons sample items))))))
+
+  (call-with-input-file filename
+    (lambda (port)
+      ;; Skip the first line because it's a header.
+      (read-line port)
+      (line-reader port '()))))
+
+(let ((samples-file (string-append (getcwd) "/samples.txt")))
+  (when (access? (string-append (getcwd) "/samples.txt") F_OK)
+    (let ((samples (samples-reader samples-file))
+          (run-path (getcwd)))
+
+      ;; Define the 'call-peaks' processes.
+      (for-each (lambda (sample)
+                  (primitive-eval
+                   `(define-public
+                      ,(symbol-append (string->symbol sample) '-call-peaks)
+                      (call-peaks-for-sample ,sample ,run-path))))
+                samples)
+
+      ;; Define the 'peak-coverage' processes.
+      (for-each (lambda (sample)
+                  (primitive-eval
+                   `(define-public
+                      ,(symbol-append (string->symbol sample) '-peak-coverage)
+                      (peak-coverage-for-sample ,sample ,run-path))))
+                samples)
+
+      ;; Define the 'merge-peaks' process
+      (primitive-eval
+       `(define-public merge-peaks (merge-peaks-for-samples ',samples)))
+
+      ;; Define the 'calculate-rpkms' process
+      (primitive-eval
+       `(define-public calculate-rpkms (calculate-rpkm-for-samples ',samples)))
+
+      ;; Define the 'samtools-idxstats' process
+      (primitive-eval
+       `(define-public idxstats (samtools-idxstats-for-samples ',samples ,run-path)))
+
+      ;; Define the 'differential-expression' process
+      (primitive-eval
+       `(define-public diff-exp (differential-expression "sample-overview.txt")))
+
+      (let ((peak-coverage-processes
+             (map (lambda (sample)
+                    (primitive-eval
+                     (symbol-append (string->symbol sample) '-peak-coverage)))
+                  samples))
+            (call-peaks-processes
+             (map (lambda (sample)
+                    (primitive-eval (symbol-append (string->symbol sample)
+                                                   '-call-peaks)))
+                  samples)))
+      (primitive-eval
+       `(define-public atacseq-workflow
+          ,(workflow
+            (name "atacseq")
+            (version "1.0")
+            (processes
+             (append `(,merge-peaks
+                       ,calculate-rpkms
+                       ,idxstats
+                       ,diff-exp)
+                     call-peaks-processes
+                     peak-coverage-processes))
+            (restrictions
+             (append
+              ;; Before we can run 'merge-peaks', we need to 'call-peaks' on each sample.
+              `((,merge-peaks . ,call-peaks-processes))
+
+              ;; Each 'peak-coverage' process depends on the 'merge-peaks' process.
+              (map (lambda (p) `(,p ,merge-peaks)) peak-coverage-processes)
+
+              ;; Before we can 'calculate-rpkms', we need the output of all
+              ;; 'peak-coverage' processes.
+              `((,calculate-rpkms . ,(append peak-coverage-processes `(,idxstats))))
+              `((,diff-exp ,calculate-rpkms))))
+            (synopsis "")
+            (description ""))))))))
