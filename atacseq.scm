@@ -316,7 +316,7 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
                                           "/share/atacseq/scripts/deseq2.R")))
         (system (string-append
-                 "grep \"C$\" " #$data-inputs " | cut -f1 > controls.txt"))
+                 "grep \\\"C$\\\" " #$data-inputs " | cut -f1 > controls.txt"))
         (system (string-append
                  "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
                  ;; FIXME: Adjust deseq2.R's output path.
