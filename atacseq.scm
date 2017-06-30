@@ -303,22 +303,25 @@ of the total set of provided samples."))))
    (description "This process merges the raw coverage files of each sample to
 one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
 
-(define-public (differential-expression controls-file)
+(define-public (differential-expression samples-file)
   (process
    (name "differential-expression")
    (version "1.0")
-   (package-inputs (list r r-atacseq-scripts))
-   (data-inputs controls-file)
+   (package-inputs (list r r-atacseq-scripts grep coreutils))
+   (data-inputs samples-file)
    (run-time (complexity
               (space (gigabytes 16))
               (time (hours 4))))
    (procedure
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
                                           "/share/atacseq/scripts/deseq2.R")))
-        (system (string-append "Rscript " deseq2-script
-                               " RPKM.narrowPeak_annot_comb.bed " #$data-inputs
-                               ;; FIXME: Adjust deseq2.R's output path.
-                                " " (getcwd) "/DE"))))
+        (system (string-append
+                 "grep \"C$\" " #$data-inputs " | cut -f1 > controls.txt"))
+        (system (string-append
+                 "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
+                 ;; FIXME: Adjust deseq2.R's output path.
+                 "controls.txt " (getcwd) "/DE"))
+        (delete-file "controls.txt")))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
