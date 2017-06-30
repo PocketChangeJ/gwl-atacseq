@@ -81,47 +81,46 @@
               (space (gigabytes 2))
               (time (minutes 20))))
    (procedure
-    #~(let ((files '#$data-inputs))
-        (for-each
-         (lambda (file-pair)
-           (let ((sample-name (car file-pair))
-                 (file-name (cdr file-pair))
-                 (output-path (string-append (getcwd) "/peaks")))
+    #~(for-each
+       (lambda (file-pair)
+         (let ((sample-name (car file-pair))
+               (file-name (cdr file-pair))
+               (output-path (string-append (getcwd) "/peaks")))
 
-             (unless (access? output-path F_OK)
-               (catch #t
-                 (lambda _ (mkdir output-path))
-                 (lambda (key . arguments) #t)))
+           (unless (access? output-path F_OK)
+             (catch #t
+               (lambda _ (mkdir output-path))
+               (lambda (key . arguments) #t)))
 
-             (system*
-              "macs2" "callpeak"
-              ;; ChIP-seq treatment file.
-              "-t" file-name
+           (system*
+            "macs2" "callpeak"
+            ;; ChIP-seq treatment file.
+            "-t" file-name
 
-              ;; File format.  We could use 'AUTO' here instead for
-              ;; automatic detection of the input file type.
-              "-f" "BAM"
+            ;; File format.  We could use 'AUTO' here instead for
+            ;; automatic detection of the input file type.
+            "-f" "BAM"
 
-              ;; Effective genome size; 'hs' is a shortcut for
-              ;; human (2.7e9)
-              "-g" "hs"
+            ;; Effective genome size; 'hs' is a shortcut for
+            ;; human (2.7e9)
+            "-g" "hs"
 
-              ;; Whether or not to build the shifting model.  If
-              ;; True, MACS will not build model. by default it means
-              ;; shifting size = 100, try to set extsize to change it.
-              ;; DEFAULT: False.
-              "--nomodel"
+            ;; Whether or not to build the shifting model.  If
+            ;; True, MACS will not build model. by default it means
+            ;; shifting size = 100, try to set extsize to change it.
+            ;; DEFAULT: False.
+            "--nomodel"
 
-              ;; If True, MACS will use fixed background lambda as
-              ;; local lambda for every peak region.  Normally, MACS
-              ;; calculates a dynamic local lambda to reflect the
-              ;; local bias due to potential chromatin structure.
-              "--nolambda"
+            ;; If True, MACS will use fixed background lambda as
+            ;; local lambda for every peak region.  Normally, MACS
+            ;; calculates a dynamic local lambda to reflect the
+            ;; local bias due to potential chromatin structure.
+            "--nolambda"
 
-              ;; Experiment name.
-              "--name" sample-name
-              "--outdir" output-path)))
-         files)))
+            ;; Experiment name.
+            "--name" sample-name
+            "--outdir" output-path)))
+       '#$data-inputs))
    (synopsis "Call peaks using MACS2")
    (description "This process calls peaks for every sample in 'data-inputs'
 using MACS2.")))
@@ -315,12 +314,11 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
               (time (hours 4))))
    (procedure
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
-                                          "/share/atacseq/scripts/deseq2.R"))
-            (system* (string-append
-                      "Rscript " deseq2-script
-                      "RPKM.narrowPeak_annot_comb.bed " #$data-inputs
-                      ;; FIXME: Adjust deseq2.R for proper output paths.
-                      " " (getcwd) "/DE")))))
+                                          "/share/atacseq/scripts/deseq2.R")))
+        (system (string-append "Rscript " deseq2-script
+                               " RPKM.narrowPeak_annot_comb.bed " #$data-inputs
+                               ;; FIXME: Adjust deseq2.R's output path.
+                                " " (getcwd) "/DE"))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
