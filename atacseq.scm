@@ -149,54 +149,53 @@ using MACS2.")))
           (delete-file "narrowPeak_sort.bed"))
 
         ;; Combine the samples
-        (if (and (zero?
-                  (apply +
-                   (map (lambda (sample)
-                          (let ((file (string-append (getcwd) "/peaks/" sample
-                                                     "_peaks.narrowPeak")))
-                            (system
-                             (string-append "cat " file
-                                            " >> narrowPeak_cat.txt"))))
-                        '#$(assoc-ref data-inputs "samples"))))
-                 ;; Cut out the useful columns
-                 (zero?
-                  (system "cut -f 1-3,5 narrowPeak_cat.txt > narrowPeak.bed"))
-                 ;; Nasty sort to force specific order of chromosomes
-                 (zero?
-                  (apply +
-                   (map
-                    (lambda (chr)
-                      (let ((chr-str (cond
-                                      ((number? chr) (number->string chr))
-                                      ((symbol? chr) (symbol->string chr))
-                                      ((string? chr) chr))))
-                        (system
-                         (string-append
-                          "egrep \\\"^" chr-str "[[:space:]]|^chr" chr-str
-                          "[[:space:]]\\\" narrowPeak.bed | "
-                          "sort -k2,2n >> narrowPeak_sort.bed"))))
-                    '(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22
-                      X Y MT))))
-                 ;; Merge peaks
-                 (zero?
-                  (system
-                   (string-append
-                    "bedtools merge -i narrowPeak_sort.bed -c 4 -o count,mean "
-                    "> narrowPeak_merge.bed")))
+        (when (and (zero?
+                    (apply +
+                     (map (lambda (sample)
+                            (let ((file (string-append (getcwd) "/peaks/" sample
+                                                       "_peaks.narrowPeak")))
+                              (system (string-append
+                                       "cat " file " >> narrowPeak_cat.txt"))))
+                          '#$(assoc-ref data-inputs "samples"))))
 
-                 ;; Annotate peaks using R
-                 (zero? (system* "Rscript" annotate-script
-                                 #$(assoc-ref data-inputs "tss-refseq")
-                                 "narrowPeak_merge.bed"
-                                 "narrowPeak_annot.bed")))
-            ;; When everything executed just fine.
-            (begin
-              (for-each delete-file '("narrowPeak.bed"
-                                      "narrowPeak_cat.txt"
-                                      "narrowPeak_sort.bed"
-                                      "narrowPeak_merge.bed"))
-              #t)
-            #f))) ; When something went wrong.
+                   ;; Cut out the useful columns
+                   (zero?
+                    (system "cut -f 1-3,5 narrowPeak_cat.txt > narrowPeak.bed"))
+
+                   ;; Nasty sort to force specific order of chromosomes
+                   (zero?
+                    (apply +
+                     (map
+                      (lambda (chr)
+                        (let ((chr-str (cond
+                                        ((number? chr) (number->string chr))
+                                        ((symbol? chr) (symbol->string chr))
+                                        ((string? chr) chr))))
+                          (system
+                           (string-append
+                            "egrep \\\"^" chr-str "[[:space:]]|^chr" chr-str
+                            "[[:space:]]\\\" narrowPeak.bed | "
+                            "sort -k2,2n >> narrowPeak_sort.bed"))))
+                      '(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22
+                        X Y MT))))
+
+                   ;; Merge peaks
+                   (zero? (system
+                           (string-append
+                            "bedtools merge -i narrowPeak_sort.bed "
+                            "-c 4 -o count,mean > narrowPeak_merge.bed")))
+
+                   ;; Annotate peaks using R
+                   (zero? (system* "Rscript" annotate-script
+                                   #$(assoc-ref data-inputs "tss-refseq")
+                                   "narrowPeak_merge.bed"
+                                   "narrowPeak_annot.bed")))
+              ;; When everything executed just correctly, we can remove the
+              ;; intermediary files.  In the case of a failure, it is useful
+              ;; to keep these for debugging purposes.
+          (for-each delete-file
+                    '("narrowPeak.bed"      "narrowPeak_cat.txt"
+                      "narrowPeak_sort.bed" "narrowPeak_merge.bed")))))
    (synopsis "Merge peaks obtained from 'call-peaks'")
    (description "This process merges the peaks obtained using 'call-peaks'.")))
 
@@ -424,9 +423,3 @@ using DESeq2.")))
               ;; 'peak-coverage' processes.
               `((,calculate-rpkms . ,(append peak-coverage-processes `(,idxstats))))
               `((,diff-exp ,calculate-rpkms)))))))))))
-
-(define-public environment-snooper
-  (process
-   (name "environment-snooper")
-   (package-inputs (list grep))
-   (procedure #~(system "echo $PATH"))))
