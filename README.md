@@ -28,7 +28,7 @@ git clone https://github.com/UMCUgenetics/gwl-atacseq.git
 export GUIX_WORKFLOW_PATH=`pwd`/gwl-atacseq
 ```
 
-Create a file called `samples.txt` that contains the a line for each
+Create a file called `samples.txt` that contains a line for each
 sample that you want to analyze:
 
 ```
@@ -38,12 +38,17 @@ sample2	sample2	/path/to/IAP/output	LIMS_ID	F	S
 sample3	sample3	/path/to/IAP/output	LIMS_ID	M	S
 ```
 
-When all of the above is done, there's only one final easy step to take:
+When all of the above is done, there's only one final step to take:
 
 ```
 # Run the pipeline.
 cd /directory/containing/samples.txt/
 guixr workflow --run=atacseq
+```
+
+Or to run it on a `grid-engine` cluster, replace the last command with:
+```
+guixr workflow --run=atacseq -e grid-engine
 ```
 
 Each step can be run separately:

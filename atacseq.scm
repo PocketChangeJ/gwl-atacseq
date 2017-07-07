@@ -151,8 +151,9 @@ using MACS2.")))
         (when (and (zero?
                     (apply +
                      (map (lambda (sample)
-                            (let ((file (string-append (getcwd) "/peaks/" sample
-                                                       "_peaks.narrowPeak")))
+                            (let ((file (string-append
+                                         (getcwd) "/peaks/" (car sample)
+                                         "_peaks.narrowPeak")))
                               (system (string-append
                                        "cat " file " >> narrowPeak_cat.txt"))))
                           '#$(assoc-ref data-inputs "samples"))))
@@ -198,34 +199,6 @@ using MACS2.")))
    (synopsis "Merge peaks obtained from 'call-peaks'")
    (description "This process merges the peaks obtained using 'call-peaks'.")))
 
-(define-public (peak-coverage-for-samples samples run-path)
-  (process
-   (name "peak-coverage")
-   (version "1.0")
-   (package-inputs (list bedtools))
-   (data-inputs
-    `(("samples" . ,samples)))
-   (run-time (complexity
-              (space (gigabytes 48))
-              (time (hours 1))))
-   (procedure
-    #~(foreach (lambda (sample)
-                 (system
-                  (string-append
-                   ;; Run 'bedtools coverage'
-                   "bedtools coverage "
-                   ;; With the peak annotation information.
-                   "-a narrowPeak_annot.bed "
-                   ;; On the sample's BAM file.
-                   "-b " #$run-path "/" sample "/mapping/" sample "_dedup.bam "
-                   ;; And save the output to a file.
-                   "-sorted > " sample "-merge_peak_cov.bed")))
-               '#$(assoc-ref data-inputs "samples")))
-   (synopsis "Compute the coverage for each sample")
-   (description "This process uses 'bedtools' to  compute both the depth and
-breadth of coverage of features in each sample on the features in the union
-of all provided samples. ")))
-
 (define-public (peak-coverage-for-sample sample run-path)
   (process
    (name (string-append sample "-peak-coverage"))
@@ -236,23 +209,27 @@ of all provided samples. ")))
               (space (gigabytes 70)) ; Peak usage was 58G
               (time (hours 1))))
    (procedure
-    #~(system
-       (string-append
-        ;; Run 'bedtools coverage'
-        "bedtools coverage "
-        ;; With the peak annotation information.
-        "-a narrowPeak_annot.bed "
-        ;; On the sample's BAM file.
-        "-b " #$run-path "/" #$data-inputs "/mapping/" #$data-inputs "_dedup.bam "
-        ;; And save the output to a file.
-        "-sorted > " #$data-inputs "-merge_peak_cov.bed")))
+    #~(begin
+        (catch #t
+          (lambda _ (mkdir (string-append (getcwd) "/merge-peaks")))
+          (lambda (key . arguments) #t))
+        (system
+         (string-append
+          ;; Run 'bedtools coverage'
+          "bedtools coverage "
+          ;; With the peak annotation information.
+          "-a narrowPeak_annot.bed "
+          ;; On the sample's BAM file.
+          "-b " #$run-path "/" #$data-inputs "/mapping/" #$data-inputs "_dedup.bam "
+          ;; And save the output to a file.
+          "-sorted > " (getcwd) "/merge-peaks/" #$data-inputs "-merge_peak_cov.bed"))))
    (synopsis (string-append "Compute the coverage for " sample))
    (description (string-append
                  "This process uses 'bedtools' to  compute both the depth and
 breadth of coverage of features in " sample " on the features in the union
 of the total set of provided samples."))))
 
-(define-public (samtools-idxstats-for-samples samples run-path)
+(define-public (samtools-idxstats-for-samples samples)
   (process
    (name "samtools-idxstats")
    (version "1.0")
@@ -263,13 +240,19 @@ of the total set of provided samples."))))
               (space (gigabytes 1))
               (time (minutes 20))))
    (procedure
-    #~(for-each (lambda (sample)
-                  (system
-                   (string-append
-                    "samtools idxstats "
-                    #$run-path "/" sample "/mapping/" sample "_dedup.bam "
-                    "> " sample ".idxstats.txt")))
-                '#$(assoc-ref data-inputs "samples")))
+    #~(begin
+        (catch #t
+          (lambda _ (mkdir (string-append (getcwd) "/idxstats")))
+          (lambda (key . arguments) #t))
+        (for-each (lambda (sample)
+                  (let ((name (car sample))
+                        (run-path (list-ref sample 2)))
+                    (system
+                     (string-append
+                      "samtools idxstats "
+                      run-path "/" name "/mapping/" name "_dedup.bam "
+                      "> " (getcwd) "/idxstats/" name ".idxstats.txt"))))
+                '#$(assoc-ref data-inputs "samples"))))
    (synopsis "Retrieve statistics from a BAM index file")
    (description "This process retrieves statistics from a BAM index file.")))
 
@@ -292,8 +275,8 @@ of the total set of provided samples."))))
             (lambda (port)
               (for-each
                (lambda (sample)
-                 (format port "~a~/~a-merge_peak_cov.bed~/~a.idxstats.txt~%"
-                         sample sample sample))
+                 (format port "~a~/~a/merge-peaks/~a-merge_peak_cov.bed~/~a/idxstats/~a.idxstats.txt~%"
+                         (car sample) (getcwd) (car sample) (getcwd) (car sample)))
                '#$(assoc-ref data-inputs "samples"))))
           ;; Run the rpkm.R script for the sample list.
           (system (string-append
@@ -345,7 +328,7 @@ using DESeq2.")))
       (if (or (eof-object? line)
               (string= "" line))
           items
-          (let ((sample (string-take line (string-index line #\tab))))
+          (let* ((sample (string-split line #\tab)))
             (line-reader port (cons sample items))))))
 
   (call-with-input-file filename
@@ -356,23 +339,26 @@ using DESeq2.")))
 
 (let ((samples-file (string-append (getcwd) "/samples.txt")))
   (when (access? (string-append (getcwd) "/samples.txt") F_OK)
-    (let ((samples (samples-reader samples-file))
-          (run-path "/hpc/cog_bioinf/ubec/useq/processed_data/nextseq/160826_NS500414_0224_HHC52BGXY"))
+    (let ((samples (samples-reader samples-file)))
 
       ;; Define the 'call-peaks' processes.
       (for-each (lambda (sample)
+                  (let ((name (car sample))
+                        (run-path (list-ref sample 2)))
                   (primitive-eval
                    `(define-public
-                      ,(symbol-append (string->symbol sample) '-call-peaks)
-                      (call-peaks-for-sample ,sample ,run-path))))
+                      ,(symbol-append (string->symbol name) '-call-peaks)
+                      (call-peaks-for-sample ,name ,run-path)))))
                 samples)
 
       ;; Define the 'peak-coverage' processes.
       (for-each (lambda (sample)
-                  (primitive-eval
-                   `(define-public
-                      ,(symbol-append (string->symbol sample) '-peak-coverage)
-                      (peak-coverage-for-sample ,sample ,run-path))))
+                  (let ((name (car sample))
+                        (run-path (list-ref sample 2)))
+                    (primitive-eval
+                     `(define-public
+                        ,(symbol-append (string->symbol name) '-peak-coverage)
+                        (peak-coverage-for-sample ,name ,run-path)))))
                 samples)
 
       ;; Define the 'merge-peaks' process
@@ -385,7 +371,7 @@ using DESeq2.")))
 
       ;; Define the 'samtools-idxstats' process
       (primitive-eval
-       `(define-public idxstats (samtools-idxstats-for-samples ',samples ,run-path)))
+       `(define-public idxstats (samtools-idxstats-for-samples ',samples)))
 
       ;; Define the 'differential-expression' process
       (primitive-eval
@@ -394,11 +380,11 @@ using DESeq2.")))
       (let ((peak-coverage-processes
              (map (lambda (sample)
                     (primitive-eval
-                     (symbol-append (string->symbol sample) '-peak-coverage)))
-                  samples))
+                     (symbol-append (string->symbol (car sample)) '-peak-coverage)))
+                    samples))
             (call-peaks-processes
              (map (lambda (sample)
-                    (primitive-eval (symbol-append (string->symbol sample)
+                    (primitive-eval (symbol-append (string->symbol (car sample))
                                                    '-call-peaks)))
                   samples)))
       (primitive-eval
