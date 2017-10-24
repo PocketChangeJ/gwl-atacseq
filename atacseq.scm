@@ -18,7 +18,7 @@
 ;; ----------------------------------------------------------------------------
 
 (define-public r-atacseq-scripts
-  (let ((commit "56111981292d9f8eb66ba68bdaefd9d39b0f7f1e"))
+  (let ((commit "9b172f266cc767ab83a24690ce890c7ebdd320c5"))
     (package
      (name "r-atacseq-scripts")
      (version "1.0")
@@ -29,7 +29,7 @@
                     commit ".tar.gz"))
               (sha256
                (base32
-                "0dpp4b5p03dmk0yp2710d1mpmiflfgl0s62gzyfhsfn2g64n5bzr"))))
+                "14afmmkpz2wm9s8dbj0v139iz0746ir67nznxy4aw1rhi4n2bzq0"))))
      (build-system trivial-build-system)
      (arguments
       `(#:modules ((guix build utils))
@@ -46,7 +46,7 @@
             (chdir (string-append "gwl-atacseq-" ,commit "/rostr/scripts"))
             (install-file "annotate.R" script-dir)
             (install-file "rpkm.R" script-dir)
-            (chdir (string-append "gwl-atacseq-" ,commit "/scripts"))
+            (chdir "../../scripts")
             (install-file "deseq2.R" script-dir)))))
      (native-inputs
       `(("gzip" ,gzip)
