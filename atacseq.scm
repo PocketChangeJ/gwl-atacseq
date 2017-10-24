@@ -45,8 +45,9 @@
             (system* tar "xvf" (assoc-ref %build-inputs "source"))
             (chdir (string-append "gwl-atacseq-" ,commit "/rostr/scripts"))
             (install-file "annotate.R" script-dir)
-            (install-file "deseq2.R" script-dir)
-            (install-file "rpkm.R" script-dir)))))
+            (install-file "rpkm.R" script-dir)
+            (chdir (string-append "gwl-atacseq-" ,commit "/scripts"))
+            (install-file "deseq2.R" script-dir)))))
      (native-inputs
       `(("gzip" ,gzip)
         ("tar" ,tar)))
@@ -125,16 +126,14 @@
    (description "This process calls peaks for every sample in 'data-inputs'
 using MACS2.")))
 
-(define-public (merge-peaks-for-samples samples)
+(define-public (merge-peaks-for-samples samples tss-file)
   (process
    (name (string-append "merge-peaks"))
    (version "1.0")
    (package-inputs (list grep r bedtools coreutils r-atacseq-scripts))
    (data-inputs
     `(("samples" . ,samples)
-      ("tss-refseq" . ,(string-append "/hpc/cog_bioinf/cuppen/project_data/"
-                                      "Complex_svs/Common_data/"
-                                      "TSS_Refseq_hg19.txt"))))
+      ("tss-refseq" . ,tss-file)))
    (run-time (complexity
               (space (gigabytes 2))
               (time (hours 2))))
@@ -195,7 +194,7 @@ using MACS2.")))
               ;; to keep these for debugging purposes.
           (for-each delete-file
                     '("narrowPeak.bed"      "narrowPeak_cat.txt"
-                      "narrowPeak_sort.bed" "narrowPeak_merge.bed")))))
+                      "narrowPeak_sort.bed")))))
    (synopsis "Merge peaks obtained from 'call-peaks'")
    (description "This process merges the peaks obtained using 'call-peaks'.")))
 
@@ -299,12 +298,9 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
                                           "/share/atacseq/scripts/deseq2.R")))
         (system (string-append
-                 "grep \\\"C$\\\" " #$data-inputs " | cut -f1 > controls.txt"))
-        (system (string-append
                  "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
                  ;; FIXME: Adjust deseq2.R's output path.
-                 "controls.txt " (getcwd) "/DE"))
-        (delete-file "controls.txt")))
+                 " " (getcwd) "/DE"))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
@@ -363,7 +359,12 @@ using DESeq2.")))
 
       ;; Define the 'merge-peaks' process
       (primitive-eval
-       `(define-public merge-peaks (merge-peaks-for-samples ',samples)))
+       `(define-public merge-peaks (merge-peaks-for-samples ',samples
+                                                            ;; TODO: Make this file a variable.
+                                                            (string-append
+                                                             "/hpc/cog_bioinf/cuppen/project_data/"
+                                                             "Complex_svs/Common_data/"
+                                                             "TSS_Refseq_hg19.txt"))))
 
       ;; Define the 'calculate-rpkms' process
       (primitive-eval
