@@ -100,7 +100,7 @@ for (subject in unique_subjects)
     log2_pos  <- res2[res2$log2FoldChange > 1,]
 }
 
-normalized_counts = <- counts (dds, normalized = TRUE)
+normalized_counts <- counts (dds, normalized = TRUE)
 write.table (normalized_counts,
              file = paste (file_output, ".DE_peaks_normalized.txt", sep = ""),
              quote = FALSE,
