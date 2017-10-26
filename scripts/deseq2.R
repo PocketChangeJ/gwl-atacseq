@@ -1,10 +1,10 @@
 ### 13-04-2017
-library(DESeq2)
-library(ggplot2)
-library(gplots)
-library(reshape2)
-library(RColorBrewer)
-library(genefilter)
+suppressMessages (library (DESeq2))
+suppressMessages (library (ggplot2))
+suppressMessages (library (gplots))
+suppressMessages (library (reshape2))
+suppressMessages (library (RColorBrewer))
+suppressMessages (library (genefilter))
 
 # Capture command-line arguments.
 args             <- commandArgs (trailingOnly=TRUE)
@@ -15,6 +15,17 @@ plots            <- TRUE
 
 # Disable scientific notation in printed numbers.
 options (scipen = 999)
+
+# Ensure the output directories exists.
+DE_output <- paste(file_output, "DE/", sep = "")
+
+if (!dir.exists (file.path (DE_output)))
+    dir.create (file.path (DE_output), showWarnings = FALSE)
+
+MA_folder <- paste(DE_output, "MA-plots/", sep = "")
+
+if (!dir.exists (file.path (MA_folder)))
+    dir.create (file.path (MA_folder), showWarnings = FALSE)
 
 # Read raw counts, not RPKMS!
 merged_peaks = read.delim (file_mergedpeaks,
@@ -53,29 +64,32 @@ for (subject in unique_subjects)
 {
     print(paste("## Calculating differential expression for sample ", subject, sep = "" ))
 
-    condition <- ifelse(subjects == subject, subject, "control")
-    condition <- factor(condition, levels=c("control", subject))
-    colData   <- data.frame(condition = condition, row.names = names(peak_counts))
-    dds       <- DESeqDataSetFromMatrix(countData = peak_counts,
-                                      colData = colData,
-                                      design = ~ condition)
+    condition <- ifelse (subjects == subject, subject, "control")
+    condition <- factor (condition, levels=c("control", subject))
+    colData   <- data.frame (condition = condition, row.names = names (peak_counts))
+    dds       <- DESeqDataSetFromMatrix (countData = peak_counts,
+                                         colData = colData,
+                                         design = ~ condition)
     dds       <- DESeq (dds)
     res       <- results (dds)
 
     write.table (as.data.frame (res),
-                 file = paste (DE_output,date, subject, "_DE_peaks.bed", sep = ""),
-                 quote = FALSE,
-                 sep = "\t",
+                 file      = paste (DE_output,date, subject, "_DE_peaks.bed", sep = ""),
+                 quote     = FALSE,
+                 sep       = "\t",
                  row.names = TRUE)
 
-    MA_folder <- paste(DE_output, "MA-plots/", sep = "")
-    ifelse (!dir.exists (file.path (MA_folder)),
-            dir.create (file.path (MA_folder),
-                        showWarnings = FALSE),
-            FALSE)
+    pdf (file      = paste (MA_folder, output_name, "_", subject,  ".pdf",sep = ""),
+         width     = 5,
+         height    = 5,
+         pointsize = 10)
 
-    pdf(file = paste(MA_folder, output_name, "_", subject,  ".pdf",sep = ""), width = 5, height = 5, pointsize = 10)
-    plotMA(res, main=paste("MA-plot_", subject, sep = ""), ylim=c(-4,4),colNonSig = rgb(211,211,211,150, maxColorValue = 255), cex = 0.5)
+    plotMA (res,
+            main      = paste("MA-plot_", subject, sep = ""),
+            ylim      = c(-4,4),
+            colNonSig = rgb(211,211,211,150, maxColorValue = 255),
+            cex       = 0.5)
+
     dev.off()
 
     res2      <- res[!is.na(res$padj), ]
