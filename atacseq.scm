@@ -299,7 +299,7 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
         (system (string-append
                  "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
                  ;; FIXME: Adjust deseq2.R's output path.
-                 " " (getcwd)))))
+                 " " (getcwd) "/"))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
