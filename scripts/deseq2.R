@@ -12,6 +12,7 @@ file_mergedpeaks <- args[1]
 file_output      <- args[2]
 qc               <- TRUE
 plots            <- TRUE
+date             <- format(Sys.Date(), "%Y-%m-%d")
 
 # Disable scientific notation in printed numbers.
 options (scipen = 999)
@@ -74,12 +75,12 @@ for (subject in unique_subjects)
     res       <- results (dds)
 
     write.table (as.data.frame (res),
-                 file      = paste (DE_output,date, subject, "_DE_peaks.bed", sep = ""),
+                 file      = paste (DE_output, date, subject, "_DE_peaks.bed", sep = ""),
                  quote     = FALSE,
                  sep       = "\t",
                  row.names = TRUE)
 
-    pdf (file      = paste (MA_folder, output_name, "_", subject,  ".pdf",sep = ""),
+    pdf (file      = paste (MA_folder, subject,  ".pdf",sep = ""),
          width     = 5,
          height    = 5,
          pointsize = 10)

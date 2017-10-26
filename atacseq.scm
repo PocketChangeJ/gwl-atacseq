@@ -43,10 +43,9 @@
             (mkdir-p script-dir)
             (setenv "PATH" PATH)
             (system* tar "xvf" (assoc-ref %build-inputs "source"))
-            (chdir (string-append "gwl-atacseq-" ,commit "/rostr/scripts"))
+            (chdir (string-append "gwl-atacseq-" ,commit "/scripts"))
             (install-file "annotate.R" script-dir)
             (install-file "rpkm.R" script-dir)
-            (chdir "../../scripts")
             (install-file "deseq2.R" script-dir)))))
      (native-inputs
       `(("gzip" ,gzip)
@@ -300,7 +299,7 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
         (system (string-append
                  "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
                  ;; FIXME: Adjust deseq2.R's output path.
-                 " " (getcwd) "/DE"))))
+                 " " (getcwd)))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
