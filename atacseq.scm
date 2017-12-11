@@ -230,7 +230,7 @@ using MACS2.")))
           ;; On the sample's BAM file.
           "-b " #$bam-file
           ;; And save the output to a file.
-          "-sorted > " (getcwd) "/merge-peaks/" #$data-inputs "-merge_peak_cov.bed")))))
+          " > " (getcwd) "/merge-peaks/" #$data-inputs "-merge_peak_cov.bed")))))
    (synopsis (string-append "Compute the coverage for " sample))
    (description (string-append
                  "This process uses 'bedtools' to  compute both the depth and
