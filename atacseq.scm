@@ -263,7 +263,7 @@ of the total set of provided samples."))))
                     (system
                      (string-append
                       "samtools idxstats " bam-file
-                      "> " (getcwd) "/idxstats/" name ".idxstats.txt"))))
+                      " > " (getcwd) "/idxstats/" name ".idxstats.txt"))))
                 '#$(assoc-ref data-inputs "samples"))))
    (synopsis "Retrieve statistics from a BAM index file")
    (description "This process retrieves statistics from a BAM index file.")))
