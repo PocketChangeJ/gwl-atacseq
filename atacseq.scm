@@ -74,9 +74,12 @@
     (version "1.0")
     (package-inputs (list python-macs2))
     (data-inputs
-     `((,sample . ,(string-append
-                   run-path "/" sample "/mapping/"
-                   sample "_dedup.bam"))))
+     `((,sample . ,(let* ((basepath (string-append
+                                      run-path "/" sample "/mapping/"
+                                      sample "_dedup"))
+                          (realigned (string-append basepath ".realigned.bam"))
+                          (dedup (string-append basepath ".bam")))
+                     (if (file-exists? realigned) realigned dedup)))))
     (run-time (complexity
               (space (gigabytes 2))
               (time (minutes 20))))
@@ -207,6 +210,12 @@ using MACS2.")))
               (space (gigabytes 70)) ; Peak usage was 58G
               (time (hours 1))))
    (procedure
+    (let* ((basepath (string-append
+                      run-path "/" sample "/mapping/"
+                      sample "_dedup"))
+           (realigned (string-append basepath ".realigned.bam"))
+           (dedup (string-append basepath ".bam"))
+           (bam-file (if (file-exists? realigned) realigned dedup)))
     #~(begin
         (catch #t
           (lambda _ (mkdir (string-append (getcwd) "/merge-peaks")))
@@ -218,9 +227,9 @@ using MACS2.")))
           ;; With the peak annotation information.
           "-a narrowPeak_annot.bed "
           ;; On the sample's BAM file.
-          "-b " #$run-path "/" #$data-inputs "/mapping/" #$data-inputs "_dedup.bam "
+          "-b " #$bam-file
           ;; And save the output to a file.
-          "-sorted > " (getcwd) "/merge-peaks/" #$data-inputs "-merge_peak_cov.bed"))))
+          " > " (getcwd) "/merge-peaks/" #$data-inputs "-merge_peak_cov.bed")))))
    (synopsis (string-append "Compute the coverage for " sample))
    (description (string-append
                  "This process uses 'bedtools' to  compute both the depth and
@@ -243,12 +252,17 @@ of the total set of provided samples."))))
           (lambda _ (mkdir (string-append (getcwd) "/idxstats")))
           (lambda (key . arguments) #t))
         (for-each (lambda (sample)
-                  (let ((name (car sample))
-                        (run-path (list-ref sample 2)))
+                  (let* ((name (car sample))
+                         (run-path (list-ref sample 2))
+                         (basepath (string-append
+                                    run-path "/" name "/mapping/"
+                                    name "_dedup"))
+                         (realigned (string-append basepath ".realigned.bam"))
+                         (dedup (string-append basepath ".bam"))
+                         (bam-file (if (file-exists? realigned) realigned dedup)))
                     (system
                      (string-append
-                      "samtools idxstats "
-                      run-path "/" name "/mapping/" name "_dedup.bam "
+                      "samtools idxstats " bam-file
                       "> " (getcwd) "/idxstats/" name ".idxstats.txt"))))
                 '#$(assoc-ref data-inputs "samples"))))
    (synopsis "Retrieve statistics from a BAM index file")
