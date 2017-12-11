@@ -256,8 +256,8 @@ of the total set of provided samples."))))
                   (let* ((name (car sample))
                          (run-path (list-ref sample 2))
                          (basepath (string-append
-                                    run-path "/" sample "/mapping/"
-                                    sample "_dedup"))
+                                    run-path "/" name "/mapping/"
+                                    name "_dedup"))
                          (realigned (string-append basepath ".realigned.bam"))
                          (dedup (string-append basepath ".bam"))
                          (bam-file (if (file-exists? realigned) realigned dedup)))
