@@ -248,24 +248,24 @@ of the total set of provided samples."))))
               (space (gigabytes 1))
               (time (minutes 20))))
    (procedure
-    (let* ((basepath (string-append
-                      run-path "/" sample "/mapping/"
-                      sample "_dedup"))
-           (realigned (string-append basepath ".realigned.bam"))
-           (dedup (string-append basepath ".bam"))
-           (bam-file (if (file-exists? realigned) realigned dedup)))
     #~(begin
         (catch #t
           (lambda _ (mkdir (string-append (getcwd) "/idxstats")))
           (lambda (key . arguments) #t))
         (for-each (lambda (sample)
-                  (let ((name (car sample))
-                        (run-path (list-ref sample 2)))
+                  (let* ((name (car sample))
+                         (run-path (list-ref sample 2))
+                         (basepath (string-append
+                                    run-path "/" sample "/mapping/"
+                                    sample "_dedup"))
+                         (realigned (string-append basepath ".realigned.bam"))
+                         (dedup (string-append basepath ".bam"))
+                         (bam-file (if (file-exists? realigned) realigned dedup)))
                     (system
                      (string-append
-                      "samtools idxstats " #$bam-file
+                      "samtools idxstats " bam-file
                       "> " (getcwd) "/idxstats/" name ".idxstats.txt"))))
-                '#$(assoc-ref data-inputs "samples")))))
+                '#$(assoc-ref data-inputs "samples"))))
    (synopsis "Retrieve statistics from a BAM index file")
    (description "This process retrieves statistics from a BAM index file.")))
 
