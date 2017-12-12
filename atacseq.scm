@@ -207,7 +207,7 @@ using MACS2.")))
    (package-inputs (list bedtools))
    (data-inputs sample)
    (run-time (complexity
-              (space (gigabytes 70)) ; Peak usage was 58G
+              (space (gigabytes 95)) ; Peak usage was 84G
               (time (hours 1))))
    (procedure
     (let* ((basepath (string-append
