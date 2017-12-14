@@ -18,7 +18,7 @@
 ;; ----------------------------------------------------------------------------
 
 (define-public r-atacseq-scripts
-  (let ((commit "82efab26f394cff922fcf97cd07536ee4b72cf12"))
+  (let ((commit "594088889ba91e64c6a1b0905f5d22d097b61c9f"))
     (package
      (name "r-atacseq-scripts")
      (version "1.0")
@@ -29,7 +29,7 @@
                     commit ".tar.gz"))
               (sha256
                (base32
-                "07fb2qdm4cb8rpmmfm7yniig6xvzimzisffsdq0dgs7sz5l2nnlb"))))
+                "0iirk1w1lsgp29ckfsaj42yym8srwamflhfnaf12hjhzkhqlmdhx"))))
      (build-system trivial-build-system)
      (arguments
       `(#:modules ((guix build utils))
