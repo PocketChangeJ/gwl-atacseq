@@ -100,9 +100,11 @@ for (subject in unique_subjects)
     log2_pos  <- res2[res2$log2FoldChange > 1,]
 }
 
+# The normalized counts are the same for every sample, so we only need to
+# generate one table.
 normalized_counts <- counts (dds, normalized = TRUE)
 write.table (normalized_counts,
-             file = paste (file_output, ".DE_peaks_normalized.txt", sep = ""),
+             file = paste (DE_output, date, "_DE_peaks_normalized.txt", sep = ""),
              quote = FALSE,
              sep = "\t",
              row.names = TRUE)
@@ -125,7 +127,7 @@ distsRL <- dist(t(assay(rld)))
 mat     <- as.matrix(distsRL)
 hc      <- hclust(distsRL)
 
-pdf (paste (file_output, ".DE_distances.pdf", sep=""))
+pdf (paste (DE_output,  date, "_DE_distances.pdf", sep=""))
 heatmap.2 (mat,Rowv = as.dendrogram (hc),
            symm=TRUE,
            trace="none",
@@ -138,7 +140,7 @@ dev.off()
 data       <- plotPCA (rld, intgroup = c("condition"), returnData=TRUE)
 percentVar <- round(100 * attr(data, "percentVar"))
 
-pdf (paste (file_output, ".DE_PCAplot.pdf", sep=""))
+pdf (paste (DE_output,  date, "_DE_PCAplot.pdf", sep=""))
 
 ggplot (data, aes(PC1,PC2,color=condition)) +
     geom_point (size=3) +
