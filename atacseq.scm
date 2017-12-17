@@ -18,7 +18,7 @@
 ;; ----------------------------------------------------------------------------
 
 (define-public r-atacseq-scripts
-  (let ((commit "594088889ba91e64c6a1b0905f5d22d097b61c9f"))
+  (let ((commit "bb7d8c3d80b489b4ada13f3731ee5cdd49790c7f"))
     (package
      (name "r-atacseq-scripts")
      (version "1.0")
@@ -29,7 +29,7 @@
                     commit ".tar.gz"))
               (sha256
                (base32
-                "0iirk1w1lsgp29ckfsaj42yym8srwamflhfnaf12hjhzkhqlmdhx"))))
+                "1hj2n4ffc01drk3hxgb12l6bdfzdzhjih45s2difc5xh2vqh25nm"))))
      (build-system trivial-build-system)
      (arguments
       `(#:modules ((guix build utils))
@@ -305,15 +305,16 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
    (package-inputs (list r r-atacseq-scripts grep coreutils))
    (data-inputs samples-file)
    (run-time (complexity
-              (space (gigabytes 16))
-              (time (hours 4))))
+              (space (gigabytes 72))
+              (time (hours 4))
+              (threads 8)))
    (procedure
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
                                           "/share/atacseq/scripts/deseq2.R")))
         (system (string-append
                  "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
                  ;; FIXME: Adjust deseq2.R's output path.
-                 " " (getcwd) "/"))))
+                 " " (getcwd) "/" " " #$(number->string (complexity-threads run-time))))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))

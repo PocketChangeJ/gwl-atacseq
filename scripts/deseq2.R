@@ -10,6 +10,7 @@ suppressMessages (library (genefilter))
 args             <- commandArgs (trailingOnly=TRUE)
 file_mergedpeaks <- args[1]
 file_output      <- args[2]
+num_cores        <- args[3]
 qc               <- TRUE
 plots            <- TRUE
 date             <- format(Sys.Date(), "%Y-%m-%d")
@@ -61,7 +62,7 @@ subjects        <- gsub (subjects, pattern = "-ATAC-\\d+", replacement = "")
 unique_subjects <- unique(subjects)
 
 # Perform the differential expression analysis per subject.
-for (subject in unique_subjects)
+results <- mclapply (unique_subjects, function (subject)
 {
     print(paste("## Calculating differential expression for sample ", subject, sep = "" ))
 
@@ -98,6 +99,21 @@ for (subject in unique_subjects)
     pval      <- res2[res2$pvalue < 0.05,]
     log2_neg  <- res2[res2$log2FoldChange < -1,]
     log2_pos  <- res2[res2$log2FoldChange > 1,]
+    return(dds)
+}, mc.cores = num_cores, mc.silent = FALSE)
+
+# mclapply wraps the call into a try(..., silent=TRUE)
+# When an error occurs, the error is returned, and accessible in the
+# return value(s).  The for-loop below checks for erroneous returns
+# and shows the error message of the first occurring error.
+#
+# The return values of the mclapply output are packed as
+# list(<GRanges>, <warnings>).  The function below unpacks the GRanges
+# and displays the warnings.
+for (item in results)
+{
+    if (class (item) == "try-error") stop (item)
+    else { dds <- item }
 }
 
 # The normalized counts are the same for every sample, so we only need to
