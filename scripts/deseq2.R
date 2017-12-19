@@ -153,7 +153,7 @@ heatmap.2 (mat,Rowv = as.dendrogram (hc),
 dev.off()
 
 # Produce a principal component plot of the samples
-data       <- plotPCA (rld, intgroup = c("condition"), returnData=TRUE)
+data       <- plotPCA (rld, returnData=TRUE)
 percentVar <- round(100 * attr(data, "percentVar"))
 
 pdf (paste (DE_output,  date, "_DE_PCAplot.pdf", sep=""))
