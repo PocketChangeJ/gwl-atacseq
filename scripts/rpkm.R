@@ -4,7 +4,8 @@
 args             <- commandArgs(trailingOnly=TRUE)
 file_mergedpeaks <- args[1]
 file_sampleinfo  <- args[2]
-file_output      <- args[3]
+directory        <- args[3]
+file_output      <- paste(directory, "/RPKM", sep = "")
 
 # Load files to work with
 merged_peaks            <- read.delim (file_mergedpeaks, header = FALSE,
@@ -34,7 +35,7 @@ for(i in 1:nrow(samplelist))
 # Note: this used to overwrite the file it loaded previously into merged_peaks,
 # which struck me as kind of weird behaviour.
 write.table (merged_peaks,
-             file = paste(file_output, ".narrowPeak_annot_comb.bed", sep = ""),
+             file = paste(directory, "/raw_counts_narrow_peaks.bed", sep = ""),
              quote = FALSE,
              sep = "\t",
              row.names = TRUE)
@@ -71,7 +72,7 @@ for (i in 1:nrow(samplelist))
 
 # And write RPKM data to file
 write.table (merged_peaks_rpkms,
-             file      = paste(file_output, ".rpkms.bed", sep = ""),
+             file      = paste(file_output, "_ATAC_peaks.bed", sep = ""),
              quote     = FALSE,
              sep       = "\t",
              row.names = TRUE)

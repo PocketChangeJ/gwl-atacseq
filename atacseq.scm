@@ -293,7 +293,7 @@ of the total set of provided samples."))))
           ;; Run the rpkm.R script for the sample list.
           (system (string-append
                    "Rscript " rpkm-script " narrowPeak_annot.bed samplelist.txt"
-                   " " (getcwd) "/RPKM")))))
+                   " " (getcwd))))))
    (synopsis "Calculate RPKMs for samples")
    (description "This process merges the raw coverage files of each sample to
 one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
@@ -312,9 +312,10 @@ one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))
     #~(let ((deseq2-script (string-append #$r-atacseq-scripts
                                           "/share/atacseq/scripts/deseq2.R")))
         (system (string-append
-                 "Rscript " deseq2-script " RPKM.narrowPeak_annot_comb.bed "
-                 ;; FIXME: Adjust deseq2.R's output path.
-                 " " (getcwd) "/" " " #$(number->string (complexity-threads run-time))))))
+                 "Rscript " deseq2-script  " "
+                 (getcwd) "/raw_counts_narrow_peaks.bed "
+                 " " (getcwd) "/" " "
+                 #$(number->string (complexity-threads run-time))))))
    (synopsis "Differential expression")
    (description "This process performs a differential expression analysis
 using DESeq2.")))
