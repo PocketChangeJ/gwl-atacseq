@@ -174,8 +174,8 @@ using MACS2.")))
                                         ((string? chr) chr))))
                           (system
                            (string-append
-                            "egrep \\\"^" chr-str "[[:space:]]|^chr" chr-str
-                            "[[:space:]]\\\" narrowPeak.bed | "
+                            "egrep \"^" chr-str "[[:space:]]|^chr" chr-str
+                            "[[:space:]]\" narrowPeak.bed | "
                             "sort -k2,2n >> narrowPeak_sort.bed"))))
                       '(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22
                         X Y MT))))
