@@ -18,7 +18,7 @@
 ;; ----------------------------------------------------------------------------
 
 (define-public r-atacseq-scripts
-  (let ((commit "bb7d8c3d80b489b4ada13f3731ee5cdd49790c7f"))
+  (let ((commit "28e982cb5616219276541eea525be22bce58b8d7"))
     (package
      (name "r-atacseq-scripts")
      (version "1.0")
@@ -29,7 +29,7 @@
                     commit ".tar.gz"))
               (sha256
                (base32
-                "1hj2n4ffc01drk3hxgb12l6bdfzdzhjih45s2difc5xh2vqh25nm"))))
+                "1ix78j5543qcknh0a6qzzwiz0zpxhpvbvnj3iwv2f52aply7k8p7"))))
      (build-system trivial-build-system)
      (arguments
       `(#:modules ((guix build utils))
@@ -293,7 +293,7 @@ of the total set of provided samples."))))
           ;; Run the rpkm.R script for the sample list.
           (system (string-append
                    "Rscript " rpkm-script " narrowPeak_annot.bed samplelist.txt"
-                   " " (getcwd))))))
+                   " " (getcwd) "/")))))
    (synopsis "Calculate RPKMs for samples")
    (description "This process merges the raw coverage files of each sample to
 one count table and normalizes the coverage in ATAC-seq peaks using RPKMs.")))

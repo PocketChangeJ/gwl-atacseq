@@ -35,7 +35,7 @@ for(i in 1:nrow(samplelist))
 # Note: this used to overwrite the file it loaded previously into merged_peaks,
 # which struck me as kind of weird behaviour.
 write.table (merged_peaks,
-             file = paste(directory, "/raw_counts_narrow_peaks.bed", sep = ""),
+             file = paste(directory, "raw_counts_narrow_peaks.bed", sep = ""),
              quote = FALSE,
              sep = "\t",
              row.names = TRUE)
